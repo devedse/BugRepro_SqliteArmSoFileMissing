@@ -5,3 +5,6 @@ ls
 
 echo "Running the SqliteAotTest application:"
 exec ./SqliteAotTest
+
+echo "Listing /app/publish contents after execution:"
+ls
