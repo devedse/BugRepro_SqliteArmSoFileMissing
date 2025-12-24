@@ -1,0 +1,58 @@
+name: Build and Test SQLite AOT Multi-Architecture
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/arm/v7
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract platform name
+        id: platform
+        run: |
+          PLATFORM_NAME=$(echo "${{ matrix.platform }}" | sed 's/\//-/g')
+          echo "name=$PLATFORM_NAME" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: true
+          tags: sqlite-aot-test:${{ steps.platform.outputs.name }}
+          cache-from: type=gha,scope=${{ steps.platform.outputs.name }}
+          cache-to: type=gha,mode=max,scope=${{ steps.platform.outputs.name }}
+
+      - name: Run the application
+        run: |
+          echo "Running on platform: ${{ matrix.platform }}"
+          docker run --rm --platform=${{ matrix.platform }} sqlite-aot-test:${{ steps.platform.outputs.name }}
+
+      - name: Check result
+        run: |
+          echo "✓ Successfully ran SQLite AOT test on ${{ matrix.platform }}"
