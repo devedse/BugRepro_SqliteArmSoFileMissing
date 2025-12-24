@@ -2,8 +2,11 @@
 
 Console.WriteLine("SQLite AOT Test - Starting...");
 
-// Create an in-memory SQLite database
-using var connection = new SqliteConnection("Data Source=:memory:");
+// Create a SQLite database file
+var dbPath = "test.db";
+Console.WriteLine($"Database path: {dbPath}");
+
+using var connection = new SqliteConnection($"Data Source={dbPath}");
 connection.Open();
 
 Console.WriteLine("Database connection opened successfully");
