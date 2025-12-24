@@ -1,21 +1,20 @@
 # Use the .NET SDK image for building
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 
 # Set the working directory
 WORKDIR /src
 
-# Copy the project file
+# Copy the project file and restore
 COPY SqliteAotTest/SqliteAotTest.csproj SqliteAotTest/
-
-# Restore dependencies
-RUN dotnet restore SqliteAotTest/SqliteAotTest.csproj
+RUN dotnet restore SqliteAotTest/SqliteAotTest.csproj -a $TARGETARCH
 
 # Copy the rest of the application code
 COPY SqliteAotTest/ SqliteAotTest/
 
 # Build and publish the application with AOT
 WORKDIR /src/SqliteAotTest
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish -c Release -a $TARGETARCH -o /app/publish
 
 # Use a minimal runtime image
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
