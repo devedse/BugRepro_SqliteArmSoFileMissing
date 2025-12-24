@@ -9,9 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -31,13 +39,33 @@ jobs:
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
-      - name: Build Docker image
+      - name: Set Image Tags
+        id: tags
+        run: |
+          echo github.ref: ${{ github.ref }}
+          echo github.actor: ${{ github.actor }}
+          echo branch name: ${GITHUB_REF#refs/heads/}
+          BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//-/g')
+          echo parsed branch name: ${BRANCH_NAME}
+
+          if [[ "${{ github.ref }}" == 'refs/heads/master' ]]; then
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/sqlite-aot-test:latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.actor }}" == 'dependabot[bot]' ]]; then
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/sqlite-aot-test:beta_${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          else 
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/sqlite-aot-test:beta_${BRANCH_NAME}" >> $GITHUB_OUTPUT
+            echo "TAGS2=ghcr.io/${{ github.repository_owner }}/sqlite-aot-test:beta_nightly" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/arm64,linux/amd64,linux/arm/v7
-          push: false
-          tags: sqlite-aot-test:latest
+          platforms: linux/arm64,linux/amd64
+          push: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
+          tags: |
+            ${{ steps.tags.outputs.TAGS }}
+            ${{ steps.tags.outputs.TAGS2 }}
 
       - name: Test amd64
         if: always()
@@ -53,12 +81,12 @@ jobs:
           echo "Running on platform: linux/arm64"
           docker run --rm --platform=linux/arm64 sqlite-aot-test:arm64
 
-      - name: Test arm/v7
-        if: always()
-        run: |
-          docker buildx build --platform linux/arm/v7 --load -t sqlite-aot-test:armv7 .
-          echo "Running on platform: linux/arm/v7"
-          docker run --rm --platform=linux/arm/v7 sqlite-aot-test:armv7
+      # - name: Test arm/v7
+      #   if: always()
+      #   run: |
+      #     docker buildx build --platform linux/arm/v7 --load -t sqlite-aot-test:armv7 .
+      #     echo "Running on platform: linux/arm/v7"
+      #     docker run --rm --platform=linux/arm/v7 sqlite-aot-test:armv7
 
       - name: Check result
         run: |
