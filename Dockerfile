@@ -1,12 +1,15 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
 
-# Install TGT and required packages for iSCSI target functionality
 RUN apt-get update && apt-get install -y \
     dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # Use the .NET SDK image for building
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+
+RUN apt-get update && apt-get install -y \
+    clang zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /src
